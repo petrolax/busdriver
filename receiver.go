@@ -36,12 +36,9 @@ func NewReceiver(ctx context.Context, redisClient *redis.Client, serviceName str
 	}
 }
 
-func (r *Receiver) makeTopic(topic string) string {
-	return fmt.Sprintf("%s:%s", r.serviceName, topic)
-}
-
 func (r *Receiver) RegisterHandler(ctx context.Context, topic string, handler Handler) error {
-	if err := r.subscriber.Subscribe(ctx, r.makeTopic(topic)); err != nil {
+	topic = MakeTopic(r.serviceName, topic)
+	if err := r.subscriber.Subscribe(ctx, topic); err != nil {
 		return fmt.Errorf("pub-sub subscribe: %v", err)
 	}
 
@@ -53,6 +50,8 @@ func (r *Receiver) RegisterHandler(ctx context.Context, topic string, handler Ha
 }
 
 func (r *Receiver) handlePayload(ctx context.Context, topic string, payload []byte) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	handler, ok := r.handlers[topic]
 	if !ok {
 		return fmt.Errorf("topic does not match")
